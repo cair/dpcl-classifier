@@ -1,6 +1,3 @@
-Certainly! Below, you'll find a professional README.md file for the code related to the paper "Dynamic Probabilistic Inclusion of Literals for Concept Learning." This README includes icons on headers, installation scripts, and a license section to make it engaging and captivating.
-
-
 # Dynamic Probabilistic Inclusion of Literals for Concept Learning (DPCL)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
