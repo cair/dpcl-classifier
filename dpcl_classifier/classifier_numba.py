@@ -146,21 +146,16 @@ def Accuracy(examples, formulas, n, labels):
 
 
 def evaluate_model(result, states, clauses, n, X_test_filtered, Y_test_filtered):
-    start_time = time.process_time()
 
     # Extract formulas from the result
     formulas = [[j + 1 if result[i, j, 1] > states else -j - 1 for j in range(n) if
                  result[i, j, 1] > states or result[i, j, 0] > states] for i in range(clauses)]
 
-    logger.info("Time = {}", time.process_time() - start_time)
     accuracy = Accuracy(X_test_filtered, formulas, n, Y_test_filtered)
-    logger.info("Accuracy: {}", accuracy)
 
     return accuracy
 
-
-def main():
-    startAll = time.process_time()
+def run_experiment(states=10000, epochs=1, clauses=150, runs=100, pl=0.6, pu=0.8):
     (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
 
     X_train = np.where(X_train.reshape((X_train.shape[0], 28 * 28)) > 75, 1, 0)
@@ -174,37 +169,42 @@ def main():
     X_test_filtered = X_test[mask_test]
     Y_test_filtered = Y_test[mask_test]
 
-    states = 10000
-    epochs = 1
-    clauses = 150
-    runs = 100
-    pl = 0.6
-    pu = 0.8
     Accuracies = []
 
     for i in range(runs):
         logger.info("-------- Run {} --------", i)
-        epochs = i + 1
         probs = np.random.uniform(pl, pu, clauses)
 
         start = time.time()
         n = X_train_filtered.shape[1]
 
         result = TMC(n, epochs, X_train_filtered, Y_train_filtered, clauses, states, probs)
-
-        formulas = [[j + 1 if result[i, j, 1] > states else -j - 1 for j in range(n) if
-                     result[i, j, 1] > states or result[i, j, 0] > states] for i in range(clauses)]
+        accuracy = evaluate_model(result, states, clauses, n, X_test_filtered, Y_test_filtered)
+        Accuracies.append(accuracy)
 
         logger.info("Time = {}", time.time() - start)
-        accuracy = Accuracy(X_test_filtered, formulas, n, Y_test_filtered)
-        Accuracies.append(accuracy)
         logger.info("Accuracy: {}", accuracy)
+
 
     logger.info("Accuracies: {}", Accuracies)
     logger.info("MIN: {}", min(Accuracies))
     logger.info("MAX: {}", max(Accuracies))
     logger.info("AVG: {}", np.mean(Accuracies))
     logger.info("STD: {}", np.std(Accuracies))
+
+
+
+def main():
+
+    states = 10000
+    epochs = 1
+    clauses = 150
+    runs = 100
+    pl = 0.6
+    pu = 0.8
+
+    run_experiment(states, epochs, clauses, runs, pl, pu)
+
 
 
 if __name__ == '__main__':

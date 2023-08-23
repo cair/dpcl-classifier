@@ -17,6 +17,7 @@ tensorflow = "^2.13.0"
 tqdm = "^4.66.1"
 loguru = "^0.7.0"
 numba-progress = "^1.1.0"
+jupyter = "^1.0.0"
 
 
 [build-system]
