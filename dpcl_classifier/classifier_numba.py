@@ -134,8 +134,17 @@ def Accuracy(examples, formulas, n, labels):
         pos_features = np.array([f for f in c if f > 0]) - 1
         neg_features = np.array([-f for f in c if f < 0]) - 1
 
-        pos_labels = (examples[:, pos_features] == 1).all(axis=1)
-        neg_labels = (examples[:, neg_features] == 0).all(axis=1)
+        if pos_features.size != 0:
+            pos_labels = (examples[:, pos_features] == 1).all(axis=1)
+        else:
+            pos_labels = [True for i in range(len(examples))]
+            pos_labels = np.array(pos_labels)
+
+        if neg_features.size != 0:
+            neg_labels = (examples[:, neg_features] == 0).all(axis=1)
+        else:
+            neg_labels =  [True for i in range(len(examples))]
+            neg_labels = np.array(neg_labels)
 
         all_labels[:, c_idx] = pos_labels & neg_labels
 
@@ -197,11 +206,11 @@ def run_experiment(states=10000, epochs=1, clauses=150, runs=100, pl=0.6, pu=0.8
 def main():
 
     states = 10000
-    epochs = 1
-    clauses = 150
-    runs = 100
-    pl = 0.6
-    pu = 0.8
+    epochs = 10
+    clauses = 1
+    runs = 1
+    pl = 0.505
+    pu = 0.51
 
     run_experiment(states, epochs, clauses, runs, pl, pu)
 
