@@ -170,13 +170,20 @@ def run_experiment(states=10000, epochs=1, clauses=150, runs=100, pl=0.6, pu=0.8
     X_train = np.where(X_train.reshape((X_train.shape[0], 28 * 28)) > 75, 1, 0)
     X_test = np.where(X_test.reshape((X_test.shape[0], 28 * 28)) > 75, 1, 0)
 
-    mask_train = np.isin(Y_train, [0, 1])
+    digit1 = 1
+    digit2 = 8
+
+    mask_train = np.isin(Y_train, [digit1, digit2])
     X_train_filtered = X_train[mask_train]
     Y_train_filtered = Y_train[mask_train]
+    Y_train_filtered[Y_train_filtered == digit1] = 0
+    Y_train_filtered[Y_train_filtered == digit2] = 1
 
-    mask_test = np.isin(Y_test, [0, 1])
+    mask_test = np.isin(Y_test, [digit1, digit2])
     X_test_filtered = X_test[mask_test]
     Y_test_filtered = Y_test[mask_test]
+    Y_test_filtered[Y_test_filtered == digit1] = 0
+    Y_test_filtered[Y_test_filtered == digit2] = 1
 
     Accuracies = []
 
