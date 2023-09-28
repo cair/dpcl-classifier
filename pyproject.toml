@@ -2,7 +2,6 @@
 name = "dpcl-classifier"
 version = "0.1.0"
 description = ""
-authors = ["Per-Arne Andersen <per@sysx.no>"]
 readme = "README.md"
 packages = [{include = "dpcl_classifier"}]
 
