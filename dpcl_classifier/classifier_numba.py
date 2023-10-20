@@ -157,8 +157,18 @@ def Accuracy(examples, formulas, n, labels):
 def evaluate_model(result, states, clauses, n, X_test_filtered, Y_test_filtered):
 
     # Extract formulas from the result
-    formulas = [[j + 1 if result[i, j, 1] > states else -j - 1 for j in range(n) if
-                 result[i, j, 1] > states or result[i, j, 0] > states] for i in range(clauses)]
+    #formulas = [[j + 1 if result[i, j, 1] > states else -j - 1 if result[i, j, 0] > states for j in range(n) if
+                 #result[i, j, 1] > states or result[i, j, 0] > states] for i in range(clauses)]
+
+    formulas = []
+    for i in range(clauses):
+        c = []
+        for j in range(n):
+            if (result[i, j, 1] > states):
+                c.append(j + 1)
+            if (result[i, 0, 0] > states):
+                c.append(-j - 1)
+        formulas.append(c)
 
     accuracy = Accuracy(X_test_filtered, formulas, n, Y_test_filtered)
 
