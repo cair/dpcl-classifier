@@ -125,15 +125,42 @@ def update_negative(n, ta_state, example, action_mask_1, action_mask_0, success_
                 ta_state[j, i, neg_ex] += 1 - success_mask_complement[j, 0]
 
 
+#@jit(nopython=True)
+# def Accuracy(examples, formulas, n, labels):
+#     accur = 0
+#     examples = np.array(examples)
+#     labels = np.array(labels)
+#
+#     for e in range(len(examples)):
+#         allLabels = []
+#         # print("------------", e,"---------------")
+#         predicted = 0
+#         for c in formulas:
+#             label = 1
+#             for f in range(n):
+#                 if c.__contains__((f + 1)) and examples[e][f] == 0:
+#                     label = 0
+#                     continue
+#                 if c.__contains__(-1 * (f + 1)) and examples[e][f] == 1:
+#                     label = 0
+#                     continue
+#             allLabels.append(label)
+#         if allLabels.__contains__(1):
+#             predicted = 1
+#         #if sum(allLabels) > len(formulas) / 2:
+#         #    predicted = 1
+#         if predicted == labels[e]:
+#             accur = accur + 1
+#     return accur / len(examples)
+
+#@jit(nopython=True)
 def Accuracy(examples, formulas, n, labels):
     examples = np.array(examples)
     labels = np.array(labels)
     all_labels = np.zeros((len(examples), len(formulas)))
-
     for c_idx, c in enumerate(formulas):
         pos_features = np.array([f for f in c if f > 0]) - 1
         neg_features = np.array([-f for f in c if f < 0]) - 1
-
         if pos_features.size != 0:
             pos_labels = (examples[:, pos_features] == 1).all(axis=1)
         else:
@@ -146,9 +173,12 @@ def Accuracy(examples, formulas, n, labels):
             neg_labels =  [True for i in range(len(examples))]
             neg_labels = np.array(neg_labels)
 
+
         all_labels[:, c_idx] = pos_labels & neg_labels
 
-    predicted = (all_labels.sum(axis=1) > 0).astype(int)
+    #s = len(formulas)
+    s = 0
+    predicted = (all_labels.sum(axis=1) > s/2).astype(int)
     accuracy = (predicted == labels).mean()
 
     return accuracy
@@ -157,55 +187,37 @@ def Accuracy(examples, formulas, n, labels):
 def evaluate_model(result, states, clauses, n, X_test_filtered, Y_test_filtered):
 
     # Extract formulas from the result
-    #formulas = [[j + 1 if result[i, j, 1] > states else -j - 1 if result[i, j, 0] > states for j in range(n) if
-                 #result[i, j, 1] > states or result[i, j, 0] > states] for i in range(clauses)]
-
-    formulas = []
-    for i in range(clauses):
-        c = []
-        for j in range(n):
-            if (result[i, j, 1] > states):
-                c.append(j + 1)
-            if (result[i, 0, 0] > states):
-                c.append(-j - 1)
-        formulas.append(c)
-
+    formulas = [[j + 1 if result[i, j, 1] > states else -j - 1 for j in range(n) if
+                 result[i, j, 1] > states or result[i, j, 0] > states] for i in range(clauses)]
+    #formulas = np.array(formulas)
     accuracy = Accuracy(X_test_filtered, formulas, n, Y_test_filtered)
 
     return accuracy
 
 def run_experiment(states=10000, epochs=1, clauses=150, runs=100, pl=0.6, pu=0.8):
-    (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
+    data = np.loadtxt("binary_iris.txt").astype(dtype=np.int32)
 
-    X_train = np.where(X_train.reshape((X_train.shape[0], 28 * 28)) > 75, 1, 0)
-    X_test = np.where(X_test.reshape((X_test.shape[0], 28 * 28)) > 75, 1, 0)
-
-    digit1 = 1
-    digit2 = 8
-
-    mask_train = np.isin(Y_train, [digit1, digit2])
-    X_train_filtered = X_train[mask_train]
-    Y_train_filtered = Y_train[mask_train]
-    Y_train_filtered[Y_train_filtered == digit1] = 0
-    Y_train_filtered[Y_train_filtered == digit2] = 1
-
-    mask_test = np.isin(Y_test, [digit1, digit2])
-    X_test_filtered = X_test[mask_test]
-    Y_test_filtered = Y_test[mask_test]
-    Y_test_filtered[Y_test_filtered == digit1] = 0
-    Y_test_filtered[Y_test_filtered == digit2] = 1
 
     Accuracies = []
 
     for i in range(runs):
         logger.info("-------- Run {} --------", i)
         probs = np.random.uniform(pl, pu, clauses)
+        np.random.shuffle(data)
+
+        X_training = data[:int(data.shape[0] * 0.7), 0:16]  # Input features
+        y_training = data[:int(data.shape[0] * 0.7), 16]  # Target value
+        y_training[y_training != 1] = 0
+
+        X_test = data[int(data.shape[0] * 0.7):, 0:16]  # Input features
+        y_test = data[int(data.shape[0] * 0.7):, 16]  # Target value
+        y_test[y_test != 1] = 0
 
         start = time.time()
-        n = X_train_filtered.shape[1]
+        n = len(X_training[0])
 
-        result = TMC(n, epochs, X_train_filtered, Y_train_filtered, clauses, states, probs)
-        accuracy = evaluate_model(result, states, clauses, n, X_test_filtered, Y_test_filtered)
+        result = TMC(n, epochs, X_training, y_training, clauses, states, probs)
+        accuracy = evaluate_model(result, states, clauses, n, X_test, y_test)
         Accuracies.append(accuracy)
 
         logger.info("Time = {}", time.time() - start)
@@ -223,11 +235,11 @@ def run_experiment(states=10000, epochs=1, clauses=150, runs=100, pl=0.6, pu=0.8
 def main():
 
     states = 10000
-    epochs = 10
-    clauses = 1
-    runs = 1
-    pl = 0.505
-    pu = 0.51
+    epochs = 1000
+    clauses = 10
+    runs = 100
+    pl = 0.6
+    pu = 0.65
 
     run_experiment(states, epochs, clauses, runs, pl, pu)
 
