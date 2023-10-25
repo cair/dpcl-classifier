@@ -120,32 +120,36 @@ def pcl_fit(
             action_mask_1, action_mask_0 = create_action_masks(ta_state[target], example, n_state_bits, n_literals)
             success_mask = success(probabilities[target])
             success_mask_complement = success(1 - probabilities[target])
+            
+            positive_labels = labels[e] == target
+            negative_labels = labels[e] != target
+        
 
             # Update ta_state for positive labels
-            pcl_update_positive(
-                n_literals,
-                ta_state[target],
-                example,
-                action_mask_1,
-                action_mask_0,
-                success_mask,
-                success_mask_complement,
-                n_state_bits
-            )
+            if positive_labels:
+                pcl_update_positive(
+                    n_literals,
+                    ta_state[target],
+                    example,
+                    action_mask_1,
+                    action_mask_0,
+                    success_mask,
+                    success_mask_complement,
+                    n_state_bits
+                )
 
-            action_mask_1, action_mask_0 = create_action_masks(ta_state[not_target], example, n_state_bits, n_literals)
-            success_mask = success(probabilities[not_target])
-            success_mask_complement = success(1 - probabilities[not_target])
-            pcl_update_negative(
-                n_literals,
-                ta_state[not_target],
-                example,
-                action_mask_1,
-                action_mask_0,
-                success_mask,
-                success_mask_complement,
-                n_state_bits
-            )
+
+            elif negative_labels:
+                pcl_update_negative(
+                    n_literals,
+                    ta_state[not_target],
+                    example,
+                    action_mask_1,
+                    action_mask_0,
+                    success_mask,
+                    success_mask_complement,
+                    n_state_bits
+                )
 
     return ta_state
 
@@ -210,8 +214,17 @@ class PCL:
                 neg_features = np.where(negative_mask_current)[0]
 
                 # Calculate the pos_labels and neg_labels for the current class and clause
-                pos_labels = (examples[:, pos_features] == 1).all(axis=1)
-                neg_labels = (examples[:, neg_features] == 0).all(axis=1)
+                if pos_features.size != 0:
+                    pos_labels = (examples[:, pos_features] == c).all(axis=1)
+                else:
+                    pos_labels = [True for i in range(len(examples))]
+                    pos_labels = np.array(pos_labels)
+
+                if neg_features.size != 0:
+                    neg_labels = (examples[:, neg_features] != c).all(axis=1)
+                else:
+                    neg_labels = [True for i in range(len(examples))]
+                    neg_labels = np.array(neg_labels)
 
                 # Store the pos_labels and neg_labels in the arrays
                 labels_all[:, c, cl] = pos_labels & neg_labels
