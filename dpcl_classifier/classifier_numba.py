@@ -166,7 +166,7 @@ def evaluate_model(result, states, clauses, n, X_test_filtered, Y_test_filtered)
         for j in range(n):
             if (result[i, j, 1] > states):
                 c.append(j + 1)
-            if (result[i, 0, 0] > states):
+            if (result[i, j, 0] > states):
                 c.append(-j - 1)
         formulas.append(c)
 
@@ -180,8 +180,8 @@ def run_experiment(states=10000, epochs=1, clauses=150, runs=100, pl=0.6, pu=0.8
     X_train = np.where(X_train.reshape((X_train.shape[0], 28 * 28)) > 75, 1, 0)
     X_test = np.where(X_test.reshape((X_test.shape[0], 28 * 28)) > 75, 1, 0)
 
-    digit1 = 1
-    digit2 = 8
+    digit1 = 0
+    digit2 = 1
 
     mask_train = np.isin(Y_train, [digit1, digit2])
     X_train_filtered = X_train[mask_train]
@@ -226,8 +226,8 @@ def main():
     epochs = 10
     clauses = 1
     runs = 1
-    pl = 0.505
-    pu = 0.51
+    pl = 0.5
+    pu = 0.55
 
     run_experiment(states, epochs, clauses, runs, pl, pu)
 
