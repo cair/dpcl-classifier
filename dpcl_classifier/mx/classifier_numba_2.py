@@ -9,33 +9,33 @@ from dpcl_classifier.mx.numba_functions import create_action_masks, success, upd
 
 
 @njit(parallel=True)
-def tmc_trainer(target, n, epochs, examples, labels, ta_state, states, probabilities):
+def tmc_trainer(target, n, examples, labels, ta_state, states, probabilities):
     # ta_state = np.random.choice(np.array([states, states + 1]), size=(clauses, n, 2)).astype(np.int32)
     n_examples = len(examples)
 
-    for _ in range(epochs):
-        for e in prange(n_examples):
-            example = examples[e]
-            # Create masks for positive and negative labels
-            positive_labels = labels[e] == target
-            negative_labels = labels[e] != target
 
-            # Create masks for actions
-            action_mask_1, action_mask_0 = create_action_masks(ta_state, example, states, n)
+    for e in prange(n_examples):
+        example = examples[e]
+        # Create masks for positive and negative labels
+        positive_labels = labels[e] == target
+        negative_labels = labels[e] != target
 
-            # Compute probabilities and success
-            p = probabilities[:, np.newaxis]
-            success_mask = success(p)
-            success_mask_complement = success(1 - p)
+        # Create masks for actions
+        action_mask_1, action_mask_0 = create_action_masks(ta_state, example, states, n)
 
-            # Update ta_state for positive labels
-            if positive_labels:
-                update_positive(n, ta_state, example, action_mask_1, action_mask_0, success_mask,
-                                success_mask_complement, states)
-            # Update ta_state for negative labels
-            elif negative_labels:
-                update_negative(n, ta_state, example, action_mask_1, action_mask_0, success_mask,
-                                success_mask_complement, states)
+        # Compute probabilities and success
+        p = probabilities[:, np.newaxis]
+        success_mask = success(p)
+        success_mask_complement = success(1 - p)
+
+        # Update ta_state for positive labels
+        if positive_labels:
+            update_positive(n, ta_state, example, action_mask_1, action_mask_0, success_mask,
+                            success_mask_complement, states)
+        # Update ta_state for negative labels
+        elif negative_labels:
+            update_negative(n, ta_state, example, action_mask_1, action_mask_0, success_mask,
+                            success_mask_complement, states)
 
     return ta_state
 
@@ -66,7 +66,6 @@ class TMC:
         self.classes = np.unique(y)
         self.n_samples = len(X)
         self.n_features = X.shape[1]
-
         self.classes_data = {k: TMCTarget(k, n_states, n_clauses, pl, pu) for k in self.classes}
 
     def fit(self, X_test, y_test):
@@ -74,11 +73,10 @@ class TMC:
         for epoch in tqdm(range(self.epochs)):
             class_sums = np.zeros((max(self.classes) + 1, self.n_samples))
 
-            for c, tm in self.classes_data.items():
+            for target, tm in self.classes_data.items():
                 tm.ta_state = tmc_trainer(
-                    c,
+                    target,
                     self.n_features,
-                    self.epochs,
                     self.X,
                     self.y,
                     tm.ta_state,
@@ -87,18 +85,18 @@ class TMC:
                 )
 
                 class_sum = evaluate_model(
-                    c,
+                    target,
                     tm.ta_state,
                     tm.n_states,
                     tm.n_clauses,
                     self.n_features,
-                    self.X,
-                    self.y,
+                    X_test,
+                    y_test,
                 )
-                class_sums[c] = class_sum
+                class_sums[target] = class_sum
 
             predicted = np.argmax(class_sums, axis=0)
-            accuracy = (predicted == self.y).mean()
+            accuracy = (predicted == y_test).mean()
             logger.info("Epoch={} - Accuracy: {}", epoch, accuracy)
 
         print(":D")
@@ -171,19 +169,43 @@ def evaluate_model(target, result, states, clauses, n, X_test_filtered, Y_test_f
 
 
 def run_experiment(states=10000, epochs=1, clauses=150, runs=100, pl=0.6, pu=0.8):
+
+
+    # Load data
     (X_train, Y_train), (X_test, Y_test) = mnist.load_data()
 
-    classes = [1, 2, 3]
+    classes = [1, 2, 3, 4, 5, 6, 7, 8, 9]
 
+    # Binarize data
     X_train = np.where(X_train.reshape((X_train.shape[0], 28 * 28)) > 75, 1, 0)
     X_test = np.where(X_test.reshape((X_test.shape[0], 28 * 28)) > 75, 1, 0)
-    mask_train = np.isin(Y_train, classes)
-    X_train_filtered = X_train[mask_train]
-    Y_train_filtered = Y_train[mask_train]
 
-    mask_test = np.isin(Y_test, classes)
-    Y_test_filtered = Y_test[mask_test]
-    X_test_filtered = X_test[mask_test]
+    N = 100  # Number of samples per class
+
+    X_train_filtered = []
+    Y_train_filtered = []
+
+    X_test_filtered = []
+    Y_test_filtered = []
+
+    for c in classes:
+        # Find indices for each class in the training set
+        indices_train = np.where(Y_train == c)[0]
+        chosen_indices_train = np.random.choice(indices_train, N, replace=False)
+        X_train_filtered.append(X_train[chosen_indices_train])
+        Y_train_filtered.append(Y_train[chosen_indices_train])
+
+        # Find indices for each class in the test set
+        indices_test = np.where(Y_test == c)[0]
+        chosen_indices_test = np.random.choice(indices_test, N, replace=False)
+        X_test_filtered.append(X_test[chosen_indices_test])
+        Y_test_filtered.append(Y_test[chosen_indices_test])
+
+    # Convert lists to numpy arrays
+    X_train_filtered = np.concatenate(X_train_filtered, axis=0)
+    Y_train_filtered = np.concatenate(Y_train_filtered, axis=0)
+    X_test_filtered = np.concatenate(X_test_filtered, axis=0)
+    Y_test_filtered = np.concatenate(Y_test_filtered, axis=0)
 
 
 
@@ -205,8 +227,8 @@ def run_experiment(states=10000, epochs=1, clauses=150, runs=100, pl=0.6, pu=0.8
 
 def main():
     states = 10000
-    epochs = 10
-    clauses = 50
+    epochs = 100
+    clauses = 500
     runs = 1
     pl = 0.5
     pu = 0.55
