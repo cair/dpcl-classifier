@@ -61,7 +61,7 @@ def update_positive(n, ta_state, example, action_mask_1, action_mask_0, success_
                 ta_state[j, i, ex] += 1 - success_mask_complement[j, 0]
 
             # Exclude negations
-            if ta_state[j, i, neg_ex] > 1:
+            if ta_state[j, i, neg_ex] > 1 and action_mask_0[j, i, 1]:
                 ta_state[j, i, neg_ex] -= action_mask_0[j, i, 1]
 
 
@@ -76,8 +76,8 @@ def update_negative(n, ta_state, example, action_mask_1, action_mask_0, success_
 
             # Include with some probability
             if ta_state[j, i, ex] < 2 * states and action_mask_1[j, i, 0]:
-                ta_state[j, i, ex] -= success_mask[j, 0]
-                ta_state[j, i, ex] += 1 - success_mask[j, 0]
+                ta_state[j, i, ex] -= 1 - success_mask_complement[j, 0]
+                ta_state[j, i, ex] += success_mask_complement[j, 0]
 
             # Include negations
             if ta_state[j, i, neg_ex] < 2 * states + 1 and action_mask_1[j, i, 1]:
