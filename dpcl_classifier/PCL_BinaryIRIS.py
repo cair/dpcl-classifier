@@ -22,20 +22,24 @@ def action(state, states):
 
 @jit(nopython=True)
 def create_action_masks(ta_state, example, states, n):
-    action_mask_1 = np.zeros((ta_state.shape[0], n), dtype=np.int32)
-    action_mask_0 = np.zeros((ta_state.shape[0], n), dtype=np.int32)
+    action_mask_1 = np.zeros((ta_state.shape[0], n, 2), dtype=np.int32)
+    action_mask_0 = np.zeros((ta_state.shape[0], n, 2), dtype=np.int32)
 
     for j in range(ta_state.shape[0]):
         for i in range(n):
-            action_result = action(ta_state[j, i, example[i]], states)
-            action_mask_1[j, i] = int(action_result == 1)
-            action_mask_0[j, i] = int(action_result == 0)
+            action_result_ex = action(ta_state[j, i, example[i]], states)
+            action_result_neg = action(ta_state[j, i, 1- example[i]], states)
+            action_mask_1[j, i, example[i]] = int(action_result_ex  == 1)
+            action_mask_0[j, i, example[i]] = int(action_result_ex  == 0)
+
+            action_mask_1[j, i, 1- example[i]] = int(action_result_neg == 1)
+            action_mask_0[j, i, 1- example[i]] = int(action_result_neg == 0)
 
     return action_mask_1, action_mask_0
 
 
 @njit(parallel=True)
-def TMC(n, epochs, examples, labels, clauses, states, probabilities):
+def PCL(n, epochs, examples, labels, clauses, states, probabilities):
     ta_state = np.random.choice(np.array([states, states + 1]), size=(clauses, n, 2)).astype(np.int32)
     n_examples = len(examples)
 
@@ -53,8 +57,13 @@ def TMC(n, epochs, examples, labels, clauses, states, probabilities):
 
             # Compute probabilities and success
             p = probabilities[:, np.newaxis]
+
             success_mask = success(p)
+
             success_mask_complement = success(1 - p)
+
+
+
 
             # Update ta_state for positive labels
             if positive_labels:
@@ -63,7 +72,7 @@ def TMC(n, epochs, examples, labels, clauses, states, probabilities):
             # Update ta_state for negative labels
             elif negative_labels:
                 update_negative(n, ta_state, example, action_mask_1, action_mask_0, success_mask,
-                                success_mask_complement, states)
+                                success_mask_complement,  states)
 
     return ta_state
 
@@ -78,21 +87,23 @@ def update_positive(n, ta_state, example, action_mask_1, action_mask_0, success_
             neg_ex = neg_example[i]
 
             # Include with some probability
-            if ta_state[j, i, ex] < 2 * states and action_mask_1[j, i]:
+            if ta_state[j, i, ex] < 2 * states and action_mask_1[j, i, ex]:
                 ta_state[j, i, ex] += success_mask[j, 0]
-                ta_state[j, i, ex] -= 1 - success_mask[j, 0]
+                ta_state[j, i, ex] -= (1 - success_mask[j, 0])
 
             # Exclude negations
-            ta_state[j, i, neg_ex] -= action_mask_1[j, i]
+            ta_state[j, i, neg_ex] -= action_mask_1[j, i, neg_ex]
+
+            #ta_state[j, i, neg_ex] -= 1
 
             # Include with some probability
-            if ta_state[j, i, ex] > 1 and action_mask_0[j, i]:
+            if ta_state[j, i, ex] > 1 and action_mask_0[j, i, ex]:
                 ta_state[j, i, ex] -= success_mask_complement[j, 0]
-                ta_state[j, i, ex] += 1 - success_mask_complement[j, 0]
+                ta_state[j, i, ex] += (1 - success_mask_complement[j, 0])
 
             # Exclude negations
             if ta_state[j, i, neg_ex] > 1:
-                ta_state[j, i, neg_ex] -= action_mask_0[j, i]
+                ta_state[j, i, neg_ex] -= action_mask_0[j, i, neg_ex]
 
 
 @jit(nopython=True)
@@ -105,26 +116,24 @@ def update_negative(n, ta_state, example, action_mask_1, action_mask_0, success_
             neg_ex = neg_example[i]
 
             # Include with some probability
-            if ta_state[j, i, ex] < 2 * states and action_mask_1[j, i]:
+            if ta_state[j, i, ex] < 2 * states and action_mask_1[j, i, ex]:
                 ta_state[j, i, ex] -= success_mask[j, 0]
                 ta_state[j, i, ex] += 1 - success_mask[j, 0]
 
             # Include negations
-            if ta_state[j, i, neg_ex] < 2 * states + 1 and action_mask_1[j, i]:
+            if ta_state[j, i, neg_ex] < 2 * states + 1 and action_mask_1[j, i, neg_ex]:
                 ta_state[j, i, neg_ex] += success_mask[j, 0]
                 ta_state[j, i, neg_ex] -= 1 - success_mask[j, 0]
 
             # Exclude with some probability
-            if ta_state[j, i, ex] > 1 and action_mask_0[j, i]:
+            if ta_state[j, i, ex] > 1 and action_mask_0[j, i, ex]:
                 ta_state[j, i, ex] += success_mask_complement[j, 0]
-                ta_state[j, i, ex] -= 1 - success_mask_complement[j, 0]
+                ta_state[j, i, ex] -= (1 - success_mask_complement[j, 0])
 
             # Exclude negations
-            if ta_state[j, i, neg_ex] > 1:
+            if ta_state[j, i, neg_ex] > 1 and action_mask_0[j, i, neg_ex]:
                 ta_state[j, i, neg_ex] -= success_mask_complement[j, 0]
                 ta_state[j, i, neg_ex] += 1 - success_mask_complement[j, 0]
-
-
 #@jit(nopython=True)
 # def Accuracy(examples, formulas, n, labels):
 #     accur = 0
