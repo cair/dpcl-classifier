@@ -232,7 +232,7 @@ def run_experiment(states=10000, epochs=1, clauses=150, runs=100, pl=0.6, pu=0.8
         #print(probs)
         start = time.time()
         n = X_train.shape[1]
-        result = TMC(n, epochs, X_train, Y_train, clauses, states, probs)
+        result = PCL(n, epochs, X_train, Y_train, clauses, states, probs)
         accuracy = evaluate_model(result, states, clauses, n, X_test, Y_test)
         Accuracies.append(accuracy)
 
