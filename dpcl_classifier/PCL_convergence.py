@@ -113,6 +113,13 @@ def main(n: int, states: int, epochs: int, clauses: int, runs: int, p: float) ->
         # logger.info("------------- Run {} -----------------------------", run_number)
 
         target = np.random.choice(3, n, replace=True)
+        flag = True
+        for i in target:
+            if (i != 2):
+                flag = False
+                break
+        if flag:
+            target[0] = 1
         labels = [1] * len(examples)
 
         for X in examples:
